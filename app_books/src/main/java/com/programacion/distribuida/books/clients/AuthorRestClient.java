@@ -12,7 +12,7 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 @Consumes(MediaType.APPLICATION_JSON)
 //ANOTACION PARA QUE SEA EL PROXY AUTOMÁTICO
 //@RegisterRestClient(configKey ="authors-api")
-@RegisterRestClient(baseUri ="stork://authors-api")
+@RegisterRestClient(baseUri ="stork://app-authors")
 
 public interface AuthorRestClient {
 

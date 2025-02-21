@@ -1,3 +1,7 @@
+# docker build -t frontend_examen .
+# docker build -t docker.io/reymon4/frontend_examen .
+# docker push reymon4/frontend_examen
+
 FROM node:lts-alpine
 
 RUN npm install -g http-server
@@ -14,6 +18,6 @@ COPY . .
 
 RUN npm run build
 
-EXPOSE 8080
+EXPOSE 9090
 
 CMD [ "http-server", "dist" ]

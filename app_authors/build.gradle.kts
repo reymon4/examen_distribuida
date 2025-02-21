@@ -46,6 +46,8 @@ dependencies {
     runtimeOnly("org.glassfish:jakarta.el")
     implementation("jakarta.xml.bind:jakarta.xml.bind-api")
 
+
+
     // Health
     implementation("io.helidon.microprofile.bundles:helidon-microprofile-core")
     implementation("io.helidon.microprofile.health:helidon-microprofile-health")
