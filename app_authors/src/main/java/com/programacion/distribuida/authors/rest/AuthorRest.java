@@ -3,7 +3,6 @@ package com.programacion.distribuida.authors.rest;
 import com.programacion.distribuida.authors.db.Author;
 import com.programacion.distribuida.authors.repo.AuthorRepository;
 import jakarta.inject.Inject;
-import jakarta.transaction.TransactionScoped;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -13,8 +12,8 @@ import jakarta.ws.rs.core.Response;
 @Path( "/authors")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-
-public class AuthorRest{
+@Transactional
+public class AuthorRest {
 
     @Inject
     private AuthorRepository repository;
@@ -56,7 +55,6 @@ public class AuthorRest{
     }
 
     @POST
-
     public Response create(@Valid Author author) {
         repository.save(author);
         return Response.ok(author).build();
