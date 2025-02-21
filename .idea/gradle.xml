@@ -10,7 +10,6 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app_authors" />
-            <option value="$PROJECT_DIR$/app_authors_gradle" />
             <option value="$PROJECT_DIR$/app_books" />
           </set>
         </option>

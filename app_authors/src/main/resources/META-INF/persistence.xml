@@ -7,6 +7,7 @@
     <persistence-unit name="pu1" transaction-type="JTA">
         <jta-data-source>ds1</jta-data-source>
         <class>com.programacion.distribuida.authors.rest.AuthorRest</class>
+        <class>com.programacion.distribuida.authors.db.Author</class>
         <properties>
         </properties>
     </persistence-unit>
