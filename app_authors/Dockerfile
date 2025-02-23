@@ -6,5 +6,5 @@ FROM eclipse-temurin:21.0.5_11-jre-alpine
 RUN mkdir /app
 WORKDIR /app
 
-COPY build/libs/app_authors_gradle.jar app.jar
+COPY build/libs/app_authors.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]

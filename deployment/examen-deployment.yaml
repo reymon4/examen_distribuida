@@ -1,3 +1,55 @@
+#POSTGRESQL
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresql
+  labels:
+    app: postgresql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql
+  template:
+    metadata:
+      name: postgresql
+      labels:
+        app: postgresql
+    spec:
+      containers:
+        - name: postgresql
+          image: postgres:17.2-alpine3.21
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_DB
+              value: distribuida
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              value: root
+            - name: PG_DATA
+              value: /var/lib/postgresql/data/pgdata
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  labels:
+    app: postgresql
+spec:
+  selector:
+    app: postgresql
+  type: ClusterIP
+  ports:
+    - name: postgresql
+      port: 5432
+      protocol: TCP
+---
+# Consul Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -11,7 +63,6 @@ spec:
       app: consul
   template:
     metadata:
-      name: consul
       labels:
         app: consul
     spec:
@@ -38,96 +89,8 @@ spec:
     - name: consul
       port: 8500
       protocol: TCP
-
 ---
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: app-books
-  labels:
-    app: app-books
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: app-books
-  template:
-    metadata:
-      name: app-books
-      labels:
-        app: app-books
-    spec:
-      containers:
-        - name: app-books
-          image: docker.io/reymon4/app_books:latest
-          imagePullPolicy: IfNotPresent
-          ports:
-            - containerPort: 8080
-              protocol: TCP
-          resources:
-            requests:
-              memory: "64Mi"
-              cpu: "250m"
-          env:
-            - name: QUARKUS_DATASOURCE_JDBC_URL
-              value: jdbc:postgresql://192.168.1.55:5432/distribuida
-            - name: QUARKUS_DATASOURCE_USERNAME
-              value: postgres
-            - name: QUARKUS_DATASOURCE_PASSWORD
-              value: root
-            - name: CONSUL_HOST
-              value: consul
-            - name: CONSUL_PORT
-              value: "8500"
-            - name: QUARKUS_HTTP_PORT
-              value: "8080"
-            - name: QUARKUS_HTTP_CORS
-              value: "true"
-            - name: QUARKUS_HTTP_CORS_ORIGIN
-              value: "*"
-            - name: QUARKUS_HTTP_CORS_METHODS
-              value: "GET, POST, PUT, DELETE"
-      restartPolicy: Always
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: app-books-services
-spec:
-  type: LoadBalancer
-  selector:
-    app: app-books
-  ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 8080
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: app-books-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: app-books
-  minReplicas: 1
-  maxReplicas: 10
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 50
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 50
-
----
+# Authors Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -141,16 +104,19 @@ spec:
       app: app-authors
   template:
     metadata:
-      name: app-authors
       labels:
         app: app-authors
     spec:
+      initContainers:
+        - name: wait-for-consul
+          image: busybox
+          command: ['sh', '-c', 'until wget -qO- http://consul:8500/v1/status/leader; do echo waiting for consul; sleep 2; done;']
       containers:
         - name: app-authors
           image: docker.io/reymon4/app_authors_examen:latest
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - containerPort: 9090
               protocol: TCP
           resources:
             requests:
@@ -158,7 +124,7 @@ spec:
               cpu: "250m"
           env:
             - name: JAVAX_SQL_DATASOURCE_DS1_DATASOURCE_SERVERNAME
-              value: 192.168.1.55
+              value: postgresql
             - name: JAVAX_SQL_DATASOURCE_DS1_DATASOURCE_PORTNUMBER
               value: "5432"
             - name: JAVAX_SQL_DATASOURCE_DS1_DATASOURCE_DATABASENAME
@@ -170,7 +136,11 @@ spec:
             - name: JAVAX_SQL_DATASOURCE_DS1_DATASOURCECLASSNAME
               value: org.postgresql.ds.PGSimpleDataSource
             - name: SERVER_PORT
-              value: "8080"
+              value: "9090"
+            - name: CONSUL_HOST
+              value: consul
+            - name: CONSUL_PORT
+              value: "8500"
       restartPolicy: Always
 ---
 apiVersion: v1
@@ -183,8 +153,8 @@ spec:
     app: app-authors
   ports:
     - protocol: TCP
-      port: 8080
-      targetPort: 8080
+      port: 9090
+      targetPort: 9090
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -211,6 +181,108 @@ spec:
           type: Utilization
           averageUtilization: 50
 ---
+# Books Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-books
+  labels:
+    app: app-books
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: app-books
+  template:
+    metadata:
+      labels:
+        app: app-books
+    spec:
+      initContainers:
+        - name: wait-for-consul
+          image: busybox
+          command: ['sh', '-c', 'until wget -qO- http://consul:8500/v1/status/leader; do echo waiting for consul; sleep 2; done;']
+        - name: wait-for-authors
+          image: busybox
+          command: ['sh', '-c', 'until wget -qO- http://app-authors-services:9090/authors; do echo waiting for authors; sleep 2; done;']
+      containers:
+        - name: app-books
+          image: docker.io/reymon4/app_books:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+          env:
+            - name: QUARKUS_DATASOURCE_JDBC_URL
+              value: jdbc:postgresql://postgresql:5432/distribuida
+            - name: QUARKUS_DATASOURCE_USERNAME
+              value: postgres
+            - name: QUARKUS_DATASOURCE_PASSWORD
+              value: root
+            - name: CONSUL_HOST
+              value: consul
+            - name: CONSUL_PORT
+              value: "8500"
+            - name: QUARKUS_HTTP_PORT
+              value: "8080"
+            - name: QUARKUS_HTTP_CORS
+              value: "true"
+            - name: QUARKUS_HTTP_CORS_ORIGINS
+              value: "http://localhost:*,http://127.0.0.1:*,http://*:*"
+            - name: QUARKUS_HTTP_CORS_METHODS
+              value: "GET,POST,PUT,DELETE,OPTIONS"
+            - name: QUARKUS_HTTP_CORS_HEADERS
+              value: "accept,authorization,content-type,x-requested-with,origin"
+            - name: QUARKUS_HTTP_CORS_EXPOSED_HEADERS
+              value: "content-disposition"
+            - name: QUARKUS_HTTP_CORS_ACCESS_CONTROL_MAX_AGE
+              value: "24H"
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-books-services
+spec:
+  type: ClusterIP
+  selector:
+    app: app-books
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      nodePort: 30001
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: app-books-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: app-books
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 50
+---
+# Vue Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -224,34 +296,37 @@ spec:
       app: frontend
   template:
     metadata:
-      name: frontend
       labels:
         app: frontend
     spec:
+      initContainers:
+        - name: wait-for-books
+          image: busybox
+          command: ['sh', '-c', 'until wget -qO- http://app-books-services:8080/books; do echo waiting for books; sleep 2; done;']
       containers:
         - name: frontend
           image: docker.io/reymon4/frontend_examen:latest
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 80
+            - containerPort: 8080
               protocol: TCP
           resources:
             requests:
               memory: "64Mi"
               cpu: "250m"
           env:
-            - name: VUE_APP_API_BOOKS_SERVER
-              value: http://app-books
-            - name: VUE_APP_API_BOOKS_PORT
-              value: "8080"
-            - name: VUE_APP_API_BOOKS_PATH
-              value: /books
+            - name: VUE_APP_HOST
+              value: app-books-services
+            - name: VUE_APP_PORT
+              value: "3001"
+            - name: VUE_APP_PATH
+              value: "books"
       restartPolicy: Always
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: frontend-services
+  name: frontend-service
 spec:
   type: LoadBalancer
   selector:
@@ -259,5 +334,23 @@ spec:
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 80
+      targetPort: 8080
 ---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50

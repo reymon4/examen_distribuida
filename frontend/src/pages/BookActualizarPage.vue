@@ -1,7 +1,7 @@
 <template>
   <div class="container">
     <h1>Update Book</h1>
-    <div v-if="!libro" class="input-container">
+    <div class="input-container">
       <label for="bookId">Enter Book ID:</label>
       <input type="text" v-model="bookId" id="bookId" />
       <button @click="fetchBook">Fetch Book</button>
@@ -15,12 +15,13 @@ import formularioBooks from '@/components/FormularioBooks.vue';
 import { getBookFacade } from '@/clients/clientBooks.js';
 
 export default {
+
   components: {
     formularioBooks
   },
   data() {
     return {
-      bookId: '',
+      bookId: null,
       libro: null
     };
   },
@@ -38,7 +39,7 @@ export default {
         alert('Error fetching book');
       }
     }
-  }
+  },
 };
 </script>
 

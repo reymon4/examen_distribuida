@@ -1,7 +1,7 @@
 <template>
   <div class="container">
     <h1>Consult Book</h1>
-    <div v-if="!libro" class="input-container">
+    <div class="input-container">
       <label for="bookId">Enter Book ID:</label>
       <input type="text" v-model="bookId" id="bookId" />
       <button @click="getBook">Search</button>
@@ -29,8 +29,10 @@ export default {
   methods: {
     async getBook() {
       try {
+        console.log('Fetching book with ID:', this.bookId); // Debugging line
         const book = await getBookFacade(this.bookId);
-        if (book) {
+        console.log('Book fetched:', book); // Debugging line
+        if (book!==null) {
           this.libro = book;
         } else {
           alert('Book not found');

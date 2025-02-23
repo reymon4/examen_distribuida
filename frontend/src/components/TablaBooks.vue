@@ -13,14 +13,13 @@
       </tr>
       </thead>
       <tbody>
-      <tr v-for="book in books" :key="book.isbn">
+      <tr v-for="book in books" :key="book.id">
         <td>{{ book.isbn }}</td>
         <td>{{ book.title }}</td>
         <td>{{ book.price }}</td>
         <td>{{ book.author }}</td>
-        <td>
-          <button @click="deleteBook(book.isbn)">Delete</button>
-          <button @click="updateBook(book)">Update</button>
+        <td >
+          <button @click="deleteBook(book.id)">Delete</button>
         </td>
       </tr>
       </tbody>
@@ -43,10 +42,7 @@ export default {
   methods: {
     async deleteBook(isbn) {
       await deleteBookFacade(isbn);
-      this.books = this.books.filter(book => book.isbn !== isbn);
-    },
-    updateBook(book) {
-      this.$router.push({ name: 'BookActualizarPage', params: { libro: book } });
+      await this.refreshBooks();
     },
     async refreshBooks() {
       this.books = await getBooksFacade();
@@ -75,7 +71,7 @@ export default {
 .books-table th, .books-table td {
   border: 1px solid #bebed2;
   padding: 12px 15px;
-  text-align: left;
+  text-align: center;
 }
 
 .books-table th {

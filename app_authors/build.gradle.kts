@@ -1,5 +1,6 @@
 plugins {
     id("java")
+    id("application")
     id("io.freefair.lombok") version "8.11"
 }
 
@@ -10,56 +11,104 @@ repositories {
     mavenCentral()
 }
 
-var helidonVersion = "4.1.6"
-
 java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
 }
 
+application {
+    mainClass.set("com.distribuida.Main")
+}
+
+var helidonVersion = "4.1.6"
+
 dependencies {
-    // Helidon
-    implementation(enforcedPlatform("io.helidon:helidon-dependencies:${helidonVersion}"))
-    implementation("io.helidon.microprofile.bundles:helidon-microprofile")
-    implementation("org.glassfish.jersey.media:jersey-media-json-binding")
+
+    implementation(platform("io.helidon:helidon-dependencies:${helidonVersion}"))
+
+    implementation("io.helidon.integrations.cdi:helidon-integrations-cdi-datasource-hikaricp:${helidonVersion}")
+    implementation("io.helidon.microprofile.server:helidon-microprofile-server:${helidonVersion}")
+    implementation("org.glassfish.jersey.media:jersey-media-json-binding:3.0.0")
+
+    runtimeOnly("jakarta.persistence:jakarta.persistence-api:2.2.3")
+    runtimeOnly("jakarta.transaction:jakarta.transaction-api:1.3.3")
+
+    runtimeOnly("io.helidon.integrations.cdi:helidon-integrations-cdi-datasource-hikaricp:${helidonVersion}")
+    runtimeOnly("io.helidon.integrations.cdi:helidon-integrations-cdi-hibernate:${helidonVersion}")
+    runtimeOnly("io.helidon.integrations.cdi:helidon-integrations-cdi-jta-weld:${helidonVersion}")
+    runtimeOnly("io.helidon.integrations.cdi:helidon-integrations-cdi-jpa:${helidonVersion}")
+
+    implementation("org.postgresql:postgresql:42.7.2")
+    implementation("org.hibernate:hibernate-core:6.4.4.Final")
+
+    implementation("com.ecwid.consul:consul-api:1.4.0")
+
+
+    implementation("org.slf4j:slf4j-api:2.0.9")
+    implementation("org.slf4j:slf4j-simple:2.0.9")
     runtimeOnly("io.helidon.logging:helidon-logging-jul")
-    runtimeOnly("io.smallrye:jandex")
-    runtimeOnly("jakarta.activation:jakarta.activation-api")
 
-    // CDI - hikari
-    runtimeOnly("io.helidon.integrations.cdi:helidon-integrations-cdi-hibernate")
-    runtimeOnly("io.helidon.integrations.cdi:helidon-integrations-cdi-datasource-hikaricp")
-    // POSTGRES
-    implementation("org.postgresql:postgresql:42.7.4")
 
-    implementation("jakarta.annotation:jakarta.annotation-api")
-    implementation("jakarta.enterprise:jakarta.enterprise.cdi-api")
-    implementation("jakarta.inject:jakarta.inject-api")
-    implementation("jakarta.ws.rs:jakarta.ws.rs-api")
-    implementation("jakarta.persistence:jakarta.persistence-api")
-    implementation("jakarta.transaction:jakarta.transaction-api")
-    implementation("io.helidon.common:helidon-common")
+    implementation("io.helidon.microprofile:helidon-microprofile-cors")
+    implementation("org.jboss:jandex:3.1.6")
 
-    runtimeOnly("io.helidon.integrations.cdi:helidon-integrations-cdi-jta-weld")
-    runtimeOnly("io.helidon.integrations.cdi:helidon-integrations-cdi-jpa")
-    runtimeOnly("org.hibernate.validator:hibernate-validator")
-    runtimeOnly("org.glassfish:jakarta.el")
-    implementation("jakarta.xml.bind:jakarta.xml.bind-api")
+
+    implementation("org.eclipse.microprofile.health:microprofile-health-api:4.0")
+    implementation("io.helidon.microprofile.health:helidon-microprofile-health:${helidonVersion}")
+
+    implementation("io.helidon.health:helidon-health:4.1.6")
+
+    implementation("io.helidon.health:helidon-health:${helidonVersion}")
+    implementation("io.helidon.health:helidon-health-checks:4.1.6")
+}
 
 
 
-    // Health
-    implementation("io.helidon.microprofile.bundles:helidon-microprofile-core")
-    implementation("io.helidon.microprofile.health:helidon-microprofile-health")
+tasks.test {
+    useJUnitPlatform()
+}
 
-    // RestClient
-    implementation("io.helidon.microprofile.rest-client:helidon-microprofile-rest-client")
+sourceSets {
+    main {
+        output.setResourcesDir( file("${buildDir}/classes/java/main") )
+    }
+}
 
-    // Metrics
-    implementation("io.helidon.microprofile.metrics:helidon-microprofile-metrics")
+tasks.jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
-    // OPENAPI
-    implementation("io.helidon.microprofile.openapi:helidon-microprofile-openapi")
+    manifest {
+        attributes(
+            mapOf("Main-Class" to "com.programacion.distribuida.authors.Main",
+                "Class-Path" to configurations.runtimeClasspath
+                    .get()
+                    .joinToString(separator = " ") { file ->
+                        "${file.name}"
+                    })
+        )
+    }
+    configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }
+}
+
+
+tasks.distTar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }
+}
+
+tasks.distZip {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }
+}
+
+tasks.installDist{
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }
+}
+
+tasks.named<JavaExec>("run") {
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.programacion.distribuida.authors.Main")
 }
 
 tasks.withType<JavaCompile> {
@@ -77,11 +126,4 @@ tasks.named("assemble") {
     dependsOn("copyLibs")
 }
 
-tasks.named<Jar>("jar") {
-    manifest {
-        attributes(
-            "Main-Class" to "io.helidon.microprofile.cdi.Main",
-            "Class-Path" to configurations.runtimeClasspath.get().files.joinToString(" ") { "libs/${it.name}" }
-        )
-    }
-}
+

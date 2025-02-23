@@ -15,6 +15,7 @@ const routes = [
     },
     {
         path: "/books/editar",
+        name: "BookActualizarPage",
         component: () => import("@/pages/BookActualizarPage.vue"),
     },
     {
